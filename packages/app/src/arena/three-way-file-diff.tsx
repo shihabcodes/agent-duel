@@ -61,6 +61,18 @@ const STICKY_HEADER_STYLE = isWeb
   ? ({ position: "sticky", top: 0, zIndex: 1 } as unknown as ViewStyle)
   : null;
 
+// A pinned band's controls: held at the left of the scroller and as wide as its visible
+// area (`cqw` against PINNED_BAND_CONTAINER_STYLE), so they stay in view when the rows
+// around the band are scrolled sideways. Web-only, cast for the same reason as above.
+const PINNED_BAND_CONTENT_STYLE = isWeb
+  ? ({ position: "sticky", left: 0, width: "100cqw" } as unknown as ViewStyle)
+  : null;
+
+// Goes on the scroller that holds pinned bands; without it `cqw` falls back to the window.
+export const PINNED_BAND_CONTAINER_STYLE = isWeb
+  ? ({ containerType: "inline-size" } as unknown as ViewStyle)
+  : null;
+
 const NO_FRAMES: ThreeWayRowFrame[] = [];
 const NO_REVEALS: ReadonlySet<number> = new Set<number>();
 const NO_DIFF: ThreeWayWindowedDiff = { rows: [], aligned: true, breaks: [] };
@@ -351,18 +363,20 @@ function CandidateColumn({
         })}
       </View>
       <View style={styles.columnScroll}>
-        {rows.map((row, index) => {
-          const cell = which === "a" ? row.a : row.b;
-          const frame = frames[index];
-          return (
-            <View
-              key={row.key}
-              style={[styles.cell, toneStyle(toneOf(cell), frame), framed(frame)]}
-            >
-              {cell ? <CandidateCellText cell={cell} tokens={tokensFor(row, cell)} /> : null}
-            </View>
-          );
-        })}
+        <View style={styles.lines}>
+          {rows.map((row, index) => {
+            const cell = which === "a" ? row.a : row.b;
+            const frame = frames[index];
+            return (
+              <View
+                key={row.key}
+                style={[styles.cell, toneStyle(toneOf(cell), frame), framed(frame)]}
+              >
+                {cell ? <CandidateCellText cell={cell} tokens={tokensFor(row, cell)} /> : null}
+              </View>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -406,22 +420,24 @@ function BaseColumn({
         ))}
       </View>
       <View style={styles.columnScroll}>
-        {rows.map((row, index) => {
-          const frame = frames[index];
-          return (
-            <View
-              key={row.key}
-              style={[styles.cell, toneStyle(row.base ? "base" : "absent", frame), framed(frame)]}
-            >
-              {row.base ? (
-                <BaseCellText
-                  cell={row.base}
-                  tokens={tokensSpelling(tokens?.get(row.base.lineNumber), row.base.content)}
-                />
-              ) : null}
-            </View>
-          );
-        })}
+        <View style={styles.lines}>
+          {rows.map((row, index) => {
+            const frame = frames[index];
+            return (
+              <View
+                key={row.key}
+                style={[styles.cell, toneStyle(row.base ? "base" : "absent", frame), framed(frame)]}
+              >
+                {row.base ? (
+                  <BaseCellText
+                    cell={row.base}
+                    tokens={tokensSpelling(tokens?.get(row.base.lineNumber), row.base.content)}
+                  />
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -448,9 +464,12 @@ function OmittedBand({ block }: { block: ThreeWayOmittedBlock }) {
 export function ExpandBand({
   gap,
   onReveal,
+  pinned = false,
 }: {
   gap: ThreeWayGapBlock;
   onReveal: (start: number, end: number) => void;
+  /** Inside a sideways scroller wider than the view; needs PINNED_BAND_CONTAINER_STYLE. */
+  pinned?: boolean;
 }) {
   const { start, end, count } = gap;
   const revealAll = useCallback(() => onReveal(start, end), [end, onReveal, start]);
@@ -466,34 +485,36 @@ export function ExpandBand({
 
   return (
     <View style={styles.band}>
-      {stepped ? (
+      <View style={[styles.bandContent, pinned && PINNED_BAND_CONTENT_STYLE]}>
+        {stepped ? (
+          <Pressable
+            onPress={revealFromTop}
+            style={styles.bandStep}
+            accessibilityRole="button"
+            accessibilityLabel={`Show ${EXPAND_STEP} more lines after the change above`}
+          >
+            <ChevronDown size={13} />
+          </Pressable>
+        ) : null}
         <Pressable
-          onPress={revealFromTop}
-          style={styles.bandStep}
+          onPress={revealAll}
+          style={styles.bandMain}
           accessibilityRole="button"
-          accessibilityLabel={`Show ${EXPAND_STEP} more lines after the change above`}
+          accessibilityLabel={`Show all ${count} unchanged lines`}
         >
-          <ChevronDown size={13} />
+          <Text style={styles.bandText}>{`⋯ ${count} unchanged lines — show all`}</Text>
         </Pressable>
-      ) : null}
-      <Pressable
-        onPress={revealAll}
-        style={styles.bandMain}
-        accessibilityRole="button"
-        accessibilityLabel={`Show all ${count} unchanged lines`}
-      >
-        <Text style={styles.bandText}>{`⋯ ${count} unchanged lines — show all`}</Text>
-      </Pressable>
-      {stepped ? (
-        <Pressable
-          onPress={revealFromBottom}
-          style={styles.bandStep}
-          accessibilityRole="button"
-          accessibilityLabel={`Show ${EXPAND_STEP} more lines before the change below`}
-        >
-          <ChevronUp size={13} />
-        </Pressable>
-      ) : null}
+        {stepped ? (
+          <Pressable
+            onPress={revealFromBottom}
+            style={styles.bandStep}
+            accessibilityRole="button"
+            accessibilityLabel={`Show ${EXPAND_STEP} more lines before the change below`}
+          >
+            <ChevronUp size={13} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -901,13 +922,16 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
   },
   band: {
-    flexDirection: "row",
-    alignItems: "center",
     minHeight: 24,
     backgroundColor: theme.colors.surface2,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
+  },
+  bandContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 24,
   },
   bandMain: {
     flex: 1,
@@ -937,6 +961,12 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minWidth: 0,
     ...(isWeb ? { overflowX: "auto" as const } : null),
+  },
+  // As wide as the longest line, so a row's tint runs under it when scrolled
+  // sideways instead of stopping at the column's edge.
+  lines: {
+    alignSelf: "flex-start",
+    minWidth: "100%",
   },
   gutterColumn: {
     // No background of its own: each gutter cell paints the fill for its row, so the
@@ -976,7 +1006,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   cell: {
     minHeight: diffRowHeight(theme),
-    minWidth: "100%",
     justifyContent: "center",
     // A change bar between the gutter and the code, in the same saturated green and
     // red as the +/- markers. On a dark theme the row fills have to stay faint enough

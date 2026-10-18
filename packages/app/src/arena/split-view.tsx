@@ -179,14 +179,16 @@ function Column({
         })}
       </View>
       <View style={styles.columnScroll}>
-        {rows.map((row) => {
-          const cell = row[side];
-          return (
-            <View key={row.key} style={[styles.cell, cellStyle(cell, side)]}>
-              <CellText cell={cell} side={side} tokens={cellTokens(tokens, cell, side, row)} />
-            </View>
-          );
-        })}
+        <View style={styles.lines}>
+          {rows.map((row) => {
+            const cell = row[side];
+            return (
+              <View key={row.key} style={[styles.cell, cellStyle(cell, side)]}>
+                <CellText cell={cell} side={side} tokens={cellTokens(tokens, cell, side, row)} />
+              </View>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -393,6 +395,12 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minWidth: 0,
     ...(isWeb ? { overflowX: "auto" as const } : null),
+  },
+  // As wide as the longest line, so a row's tint runs under it when scrolled
+  // sideways instead of stopping at the column's edge.
+  lines: {
+    alignSelf: "flex-start",
+    minWidth: "100%",
   },
   cell: {
     minHeight: diffRowHeight(theme),

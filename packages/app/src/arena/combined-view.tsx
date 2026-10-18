@@ -18,7 +18,7 @@ import {
   type CombinedRowWithTokens as CombinedRow,
 } from "./combined-tokens";
 import { MAX_RENDERED_ROWS, diffRowHeight, diffTextHeight } from "./diff-metrics";
-import { ExpandBand, SegmentText } from "./three-way-file-diff";
+import { ExpandBand, PINNED_BAND_CONTAINER_STYLE, SegmentText } from "./three-way-file-diff";
 import { TokenText } from "./token-text";
 
 const NO_REVEALS: ReadonlySet<number> = new Set<number>();
@@ -286,7 +286,7 @@ export function CombinedFileView({
   }, [full, revealed, rows]);
 
   return (
-    <View style={[styles.viewer, capStyle]} testID={testID}>
+    <View style={[styles.viewer, PINNED_BAND_CONTAINER_STYLE, capStyle]} testID={testID}>
       {diff.mode === "direct" ? (
         <Text style={[styles.mutedText, styles.pad]} testID="arena-combined-direct-note">
           {`Both rewrote this file, so it reads as ${labelA} against ${labelB}; the original is not in this view.`}
@@ -300,7 +300,7 @@ export function CombinedFileView({
       <View style={styles.scroll}>
         {blocks.map((block) =>
           block.kind === "gap" ? (
-            <ExpandBand key={block.key} gap={block} onReveal={handleReveal} />
+            <ExpandBand key={block.key} gap={block} onReveal={handleReveal} pinned />
           ) : (
             <View key={block.key}>
               {block.rows.map((row) => (
@@ -344,6 +344,10 @@ const styles = StyleSheet.create((theme) => ({
       : { overflow: "hidden" as const }),
   },
   scroll: {
+    // As wide as the longest line in the file, so every row's tint runs under it
+    // when scrolled sideways instead of stopping at the viewer's edge. The gap
+    // bands span it too; ExpandBand's `pinned` keeps their controls in view.
+    alignSelf: "flex-start",
     minWidth: "100%",
     // The last line should not sit on the viewer's edge, or a scrolled view
     // reads as a cut-off one.

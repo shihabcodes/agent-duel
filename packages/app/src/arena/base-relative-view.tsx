@@ -180,28 +180,30 @@ function Column({
           })}
         </View>
         <View style={styles.codeScroll}>
-          {shownRows.map(({ row, cell, dataSet }) => {
-            const removed = cell?.type === "remove";
-            const source = removed ? tokens.base : tokens[side];
-            const line = removed ? row.base?.lineNumber : cell?.lineNumber;
-            const matched =
-              cell && line != null ? tokensSpelling(source.get(line), cell.content) : undefined;
-            const tone = toneFor(cell?.type);
-            return (
-              <View key={row.key} style={[styles.codeRow, tone]} dataSet={dataSet}>
-                {cell && matched ? (
-                  <TokenText
-                    tokens={matched}
-                    segments={cell.segments}
-                    lineStyle={styles.codeText}
-                    highlightStyle={removed ? styles.removeHighlight : styles.addHighlight}
-                  />
-                ) : (
-                  <Text style={styles.codeText}>{cell?.content || " "}</Text>
-                )}
-              </View>
-            );
-          })}
+          <View style={styles.codeLines}>
+            {shownRows.map(({ row, cell, dataSet }) => {
+              const removed = cell?.type === "remove";
+              const source = removed ? tokens.base : tokens[side];
+              const line = removed ? row.base?.lineNumber : cell?.lineNumber;
+              const matched =
+                cell && line != null ? tokensSpelling(source.get(line), cell.content) : undefined;
+              const tone = toneFor(cell?.type);
+              return (
+                <View key={row.key} style={[styles.codeRow, tone]} dataSet={dataSet}>
+                  {cell && matched ? (
+                    <TokenText
+                      tokens={matched}
+                      segments={cell.segments}
+                      lineStyle={styles.codeText}
+                      highlightStyle={removed ? styles.removeHighlight : styles.addHighlight}
+                    />
+                  ) : (
+                    <Text style={styles.codeText}>{cell?.content || " "}</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
         </View>
       </View>
     </View>
@@ -583,9 +585,11 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: "center",
   },
   codeScroll: { flex: 1, minWidth: 0, ...(isWeb ? { overflowX: "auto" as const } : null) },
+  // As wide as the longest line, so a row's tint runs under it when scrolled
+  // sideways instead of stopping at the column's edge.
+  codeLines: { alignSelf: "flex-start", minWidth: "100%" },
   codeRow: {
     height: diffRowHeight(theme),
-    minWidth: "100%",
     justifyContent: "center",
     paddingHorizontal: theme.spacing[1],
   },
